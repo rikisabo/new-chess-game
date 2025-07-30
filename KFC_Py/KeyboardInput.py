@@ -137,6 +137,7 @@ class KeyboardProducer(threading.Thread):
                     "move",
                     [self.selected_cell, cell]
                 )
+                # the command enter to the game queue
                 self.queue.put(cmd)
                 logger.info(f"Player{self.player} queued {cmd}")
                 self.selected_id = None

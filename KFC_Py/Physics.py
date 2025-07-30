@@ -45,7 +45,8 @@ class BasePhysics(ABC):  # Interface/base class
         return self.board.m_to_pix(self._curr_pos_m)
 
     def get_curr_cell(self) -> Tuple[int, int]:
-        """Return current board cell `(row, col)` derived from position."""
+        if self._curr_pos_m is None:
+            return None
         return self.board.m_to_cell(self._curr_pos_m)
 
     def get_start_ms(self) -> int:

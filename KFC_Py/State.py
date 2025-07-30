@@ -1,16 +1,18 @@
 from __future__ import annotations
 from ast import List, Tuple
 from Command import Command
+from enums.EventType import EventType
+from message_bus import publish  
 from Moves import Moves
 from Graphics import Graphics
 from Physics import BasePhysics
-from typing import Dict, Callable, Optional
+from typing import Dict, Callable, Optional, TYPE_CHECKING
 import time, logging
 
-from Piece import Piece
+if TYPE_CHECKING:
+    from Piece import Piece
 
 logger = logging.getLogger(__name__)
-
 
 class State:
     def __init__(self, moves: Optional[Moves], graphics: Graphics, physics: BasePhysics):
@@ -56,7 +58,13 @@ class State:
                 logger.debug(f"Invalid move: {current_cell} → {dst_cell}")
                 logger.debug(f"Move validation failed for piece color: {my_color}")
                 return self
-        
+            else:
+                publish(EventType.INVALID_MOVE, {
+                    "from": current_cell,
+                    "to": dst_cell,
+                    "color": my_color,
+                })
+            
         elif cmd.type == "jump":
             # For jump, we just transition to the next state without validation here
             pass

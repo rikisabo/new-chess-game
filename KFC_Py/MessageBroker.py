@@ -1,5 +1,5 @@
 from Subscriber import Subscriber
-from EventType import EventType
+from KFC_Py.enums.EventType import EventType
 class MessageBroker:
     def __init__(self):
         self.subscribers = {}  
