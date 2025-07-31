@@ -1,0 +1,125 @@
+# Moves.py
+from __future__ import annotations
+import pathlib
+from typing import List, Tuple
+import logging
+
+_CAPTURE = 1  # tag flag
+_NON_CAPTURE = 0
+
+
+class Moves:
+    """
+    Parse moves.txt lines (whitespace & comments allowed):
+        dr,dc               # can both capture and not capture
+        dr,dc:non_capture   # non-capture move only
+        dr,dc:capture       # capture move only (e.g. pawn diagonal)
+    """
+
+    def __init__(self, moves_file: pathlib.Path, dims: Tuple[int, int]):
+        """Load moves from a text file.
+
+        Args:
+            moves_file: Path to moves.txt file
+            dims: Board dimensions (rows, cols)
+        """
+        self.dims = dims
+        self.moves = {}  # (dr, dc) -> tag
+
+        if not moves_file.exists():
+            return
+
+        with moves_file.open() as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+
+                # Parse "dr,dc" or "dr,dc:tag" format
+                if ":" in line:
+                    # Format: "dr,dc:tag"
+                    move, tag = line.split(":", 1)
+                    dr, dc = map(int, move.strip().split(","))
+                    tag = tag.strip()
+                else:
+                    # Format: "dr,dc" (can both capture and non-capture)
+                    dr, dc = map(int, line.split(","))
+                    tag = ""  # Empty tag means can both capture and non-capture
+
+                self.moves[(dr, dc)] = tag
+
+    def is_dst_cell_valid(self, dr, dc, dst_pieces = None, my_color = None, dst_has_piece: bool | None = None):
+        if dst_has_piece is not None and dst_pieces is None:
+            # synthesise minimal placeholder list when a piece is present
+            Dummy = type("Dummy", (), {"id": "DX"})
+            dst_pieces = [Dummy()] if dst_has_piece else None
+            # tests don't care about colour; default if missing
+            my_color   = my_color or "W"
+
+        # unknown relative move
+        if (dr, dc) not in self.moves:
+            return False
+
+        move_tag = self.moves[(dr, dc)]
+        if move_tag == "":  # No tag = can both capture/non-capture
+            # For pieces without specific tags, allow move to empty square
+            # or capture only if there are opponent pieces (not same color)
+            if dst_pieces is None:
+                return True  # Empty square - allowed
+            # Check if there are any opponent pieces at destination
+            return len([p for p in dst_pieces if p.id[1] != my_color]) > 0
+
+        if move_tag == "capture":
+            return dst_pieces is not None and len([p for p in dst_pieces if p.id[1] != my_color]) > 0
+
+        if move_tag == "non_capture":
+            return dst_pieces is None
+
+        return False  # Invalid tag
+
+    def is_valid(self, src_cell, dst_cell, cell2piece, is_need_clear_path, my_color):
+        # Check board boundaries
+        if not (0 <= dst_cell[0] < self.dims[0] and 0 <= dst_cell[1] < self.dims[1]):
+            logging.debug(f"Move out of bounds: {dst_cell}")
+            return False
+
+        dr, dc = dst_cell[0] - src_cell[0], dst_cell[1] - src_cell[1]
+        if not self.is_dst_cell_valid(dr, dc, cell2piece.get(dst_cell), my_color):
+            logging.debug(f"Invalid destination: {src_cell} → {dst_cell}")
+            return False
+
+        logging.debug(f"Checking path: {src_cell} → {dst_cell}, need_clear_path={is_need_clear_path}")
+        
+        # Only check path if piece needs clear path (not for knights)
+        if is_need_clear_path and not self._path_is_clear(src_cell, dst_cell, cell2piece, my_color):
+            logging.debug(f"Path not clear: {src_cell} → {dst_cell}")
+            return False
+
+        logging.debug(f"Move is valid: {src_cell} → {dst_cell}")
+        return True
+
+    def _path_is_clear(self, src_cell, dst_cell, cell2piece_all, my_color):
+        """Check if there are any pieces blocking the path between src and dst."""
+        dr = dst_cell[0] - src_cell[0]
+        dc = dst_cell[1] - src_cell[1]
+        
+        # Check all pieces in the path, not just same color pieces
+        cell2piece = cell2piece_all
+
+        # Get unit vector for movement direction
+        steps = max(abs(dr), abs(dc))
+        if steps == 0:
+            return True
+            
+        step_r = dr / steps
+        step_c = dc / steps
+
+        # Check each cell along the path (excluding src and dst)
+        for i in range(1, steps):
+            r = src_cell[0] + int(i * step_r)
+            c = src_cell[1] + int(i * step_c)
+            if (r, c) in cell2piece:
+                print(f"Path not clear at {(r,c)}")
+                return False
+
+        return True

@@ -1,0 +1,8 @@
+# Chess Game Client Requirements
+# Network communication
+requests==2.31.0
+websockets==12.0
+
+# Graphics and UI (from original KFC_Py)
+opencv-python==4.8.1.78
+numpy==1.24.3
