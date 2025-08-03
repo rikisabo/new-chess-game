@@ -23,9 +23,10 @@ class InvalidBoard(Exception):
 class ServerGame:
     """Server-side game logic without GUI dependencies"""
     
-    def __init__(self, pieces: List[Piece], board: Board):
+    def __init__(self, pieces: List[Piece], board: Board, game_id: str = "Unknown"):
         self.pieces = pieces
         self.board = board
+        self.game_id = game_id  # שמירת ה-game_id
         self.curr_board = None
         self.user_input_queue = queue.Queue()
         self.piece_by_id = {p.id: p for p in pieces}
@@ -79,6 +80,15 @@ class ServerGame:
         except Exception as e:
             logger.error(f"Error processing command for {piece_id}: {e}")
             return False
+
+    def _process_input(self, cmd: Command) -> bool:
+        """Process a single input command - compatibility method for server calls"""
+        if not cmd.params or len(cmd.params) < 2:
+            logger.warning(f"Invalid command parameters: {cmd.params}")
+            return False
+            
+        target_cell = cmd.params[1]
+        return self.process_move_command(cmd.piece_id, target_cell)
 
     def update_game_state(self) -> bool:
         """Update game state (physics, collisions) - server version"""

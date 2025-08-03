@@ -35,6 +35,8 @@ class ErrorCodes:
     GAME_FULL = "GAME_FULL"
     CONNECTION_ERROR = "CONNECTION_ERROR"
     INVALID_REQUEST = "INVALID_REQUEST"
+    SERVER_ERROR = "SERVER_ERROR"          # הוספתי את זה
+    INVALID_MESSAGE = "INVALID_MESSAGE"    # הוספתי את זה
 
 @dataclass
 class PlayerJoinMessage:
@@ -170,16 +172,43 @@ def create_game_start_message(game_id: str, players: List[Dict[str, Any]]) -> Pr
         }
     )
 
-def create_game_state_message(pieces: List[PieceState], current_player: str, 
-                             move_log: List[Dict[str, Any]], game_status: str,
-                             winner: str = None, selected_pieces: Dict[str, str] = None) -> ProtocolMessage:
+def create_game_state_message(game_status: str, current_player: str, 
+                             players: Dict[str, Dict], pieces: List,
+                             move_log: List[Dict[str, Any]] = None, winner: str = None, 
+                             selected_pieces: Dict[str, str] = None) -> ProtocolMessage:
+    
+    # Clean players data for transmission (remove websocket objects)
+    clean_players = {}
+    for player_id, player_data in players.items():
+        clean_players[player_id] = {
+            'name': player_data.get('name', 'Unknown'),
+            'color': player_data.get('color', 'white'),
+            'connected': player_data.get('connected', False)
+        }
+    
+    # Clean pieces data - handle both dict and objects
+    clean_pieces = []
+    for piece in pieces:
+        if isinstance(piece, dict):
+            clean_pieces.append(piece)
+        elif hasattr(piece, '__dict__'):
+            clean_pieces.append(piece.__dict__)
+        else:
+            # Fallback - convert to dict representation
+            clean_pieces.append({
+                "id": getattr(piece, 'id', 'unknown'),
+                "position": getattr(piece, 'position', [0, 0]),
+                "selected": False
+            })
+    
     return ProtocolMessage(
         MessageType.GAME_STATE,
         {
-            "pieces": [piece.__dict__ for piece in pieces],
+            "status": game_status,
             "current_player": current_player,
-            "move_log": move_log,
-            "game_status": game_status,
+            "players": clean_players,
+            "pieces": clean_pieces,
+            "move_log": move_log or [],
             "winner": winner,
             "selected_pieces": selected_pieces or {}
         }

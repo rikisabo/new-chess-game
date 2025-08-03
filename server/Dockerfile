@@ -1,22 +1,38 @@
-# Chess Game Server - Complete Independence
+# Chess Game Server - Production Docker Image
 FROM python:3.11-slim
 
+# Set working directory
 WORKDIR /app
 
-# Copy requirements and install dependencies
+# Install system dependencies for OpenCV
+RUN apt-get update && apt-get install -y \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
 COPY requirements.txt .
+
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all server files
-COPY *.py ./
-COPY enums/ ./enums/
+# Copy application code
+COPY . .
+
+# Create non-root user for security
+RUN useradd -m -u 1000 chessapp && chown -R chessapp:chessapp /app
+USER chessapp
 
 # Expose port
-EXPOSE 8765
+EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8765/health || exit 1
+    CMD python -c "import socket; s=socket.socket(); s.connect(('localhost', 8000)); s.close()" || exit 1
 
-# Run server
-CMD ["python", "game_server_api.py"]
+# Run the server
+CMD ["python", "main.py"]

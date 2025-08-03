@@ -5,13 +5,13 @@ from message_bus import subscribe
 import time
 
 class ScreenOverlay:
-    def __init__(self):
+    def __init__(self, window_name="Game"):
         # Subscribe to game start and game over events
         subscribe(EventType.GAME_START, self.on_game_start)
         subscribe(EventType.GAME_END, self.on_game_over)
 
         self.duration = 3000  # Display duration in milliseconds
-        self.window_name = "Game"
+        self.window_name = window_name  # שמירת שם החלון שהועבר
         self.canvas_width = 1920
         self.canvas_height = 1080
         

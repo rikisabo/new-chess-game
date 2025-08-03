@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>משחק שחמט מקצועי | Professional Chess Game</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="game-title">♟️ משחק שחמט מקצועי</h1>
+                <div class="connection-status" id="connectionStatus">
+                    <span class="status-indicator" id="statusIndicator"></span>
+                    <span id="statusText">מתחבר...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Game Info Bar -->
+        <div class="game-info-bar" id="gameInfoBar">
+            <div class="game-id">
+                <strong>מזהה משחק:</strong> <span id="gameId">-</span>
+            </div>
+            <div class="game-status">
+                <strong>סטטוס:</strong> <span id="gameStatus">מתחבר</span>
+            </div>
+            <div class="current-player">
+                <strong>תור:</strong> <span id="currentPlayer">-</span>
+            </div>
+            <div class="players-count">
+                <strong>שחקנים:</strong> <span id="playersCount">0/2</span>
+            </div>
+        </div>
+
+        <!-- Main Game Area -->
+        <main class="main-content">
+            <!-- Connection Screen -->
+            <div class="screen" id="connectionScreen">
+                <div class="connection-form">
+                    <h2>הצטרף למשחק</h2>
+                    <form id="joinForm">
+                        <div class="form-group">
+                            <label for="playerName">שם שחקן:</label>
+                            <input type="text" id="playerName" required placeholder="הכנס שם שחקן" maxlength="20">
+                        </div>
+                        <div class="form-group">
+                            <label for="preferredColor">צבע מועדף:</label>
+                            <select id="preferredColor">
+                                <option value="">לא משנה</option>
+                                <option value="white">לבן</option>
+                                <option value="black">שחור</option>
+                            </select>
+                        </div>
+                        <button type="submit" id="joinButton">הצטרף למשחק</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Game Screen -->
+            <div class="screen hidden" id="gameScreen">
+                <div class="game-container">
+                    <!-- Chess Board -->
+                    <div class="board-container">
+                        <canvas id="chessBoard" width="640" height="640"></canvas>
+                        <div class="board-coordinates">
+                            <div class="files">a b c d e f g h</div>
+                            <div class="ranks">8 7 6 5 4 3 2 1</div>
+                        </div>
+                    </div>
+
+                    <!-- Game Controls -->
+                    <div class="game-controls">
+                        <div class="player-info">
+                            <div class="player white-player">
+                                <div class="player-color"></div>
+                                <div class="player-details">
+                                    <div class="player-name" id="whitePlayerName">שחקן לבן</div>
+                                    <div class="player-status" id="whitePlayerStatus">מחכה</div>
+                                </div>
+                            </div>
+                            <div class="player black-player">
+                                <div class="player-color"></div>
+                                <div class="player-details">
+                                    <div class="player-name" id="blackPlayerName">שחקן שחור</div>
+                                    <div class="player-status" id="blackPlayerStatus">מחכה</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="action-buttons">
+                            <button id="newGameButton" disabled>משחק חדש</button>
+                            <button id="resignButton" disabled>כניעה</button>
+                            <button id="drawOfferButton" disabled>הצעת תיקו</button>
+                        </div>
+
+                        <div class="move-history">
+                            <h3>היסטוריית מהלכים</h3>
+                            <div class="moves-list" id="movesList"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Waiting Screen -->
+            <div class="screen hidden" id="waitingScreen">
+                <div class="waiting-content">
+                    <div class="loading-spinner"></div>
+                    <h2>מחכה לשחקן נוסף...</h2>
+                    <p>מזהה משחק: <strong id="waitingGameId">-</strong></p>
+                    <p>שתף את המזהה עם חבר כדי שיוכל להצטרף!</p>
+                </div>
+            </div>
+
+            <!-- Error Screen -->
+            <div class="screen hidden" id="errorScreen">
+                <div class="error-content">
+                    <h2>❌ שגיאת חיבור</h2>
+                    <p id="errorMessage">לא ניתן להתחבר לשרת</p>
+                    <button id="retryButton">נסה שוב</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2025 משחק שחמט מקצועי | Professional Chess Game</p>
+            <p>
+                <a href="https://github.com/yourusername/chess-game" target="_blank">GitHub</a> |
+                <a href="#" id="aboutLink">אודות</a>
+            </p>
+        </footer>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="chess-engine.js"></script>
+    <script src="websocket-client.js"></script>
+    <script src="game-ui.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

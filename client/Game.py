@@ -22,9 +22,10 @@ class InvalidBoard(Exception):
     pass
 
 class Game:
-    def __init__(self, pieces: List[Piece], board: Board):
+    def __init__(self, pieces: List[Piece], board: Board, game_id: str = "Unknown"):
         self.pieces = pieces
         self.board = board
+        self.game_id = game_id  # שמירת ה-game_id
         self.curr_board = None
         self.user_input_queue = queue.Queue()
         self.piece_by_id = {p.id: p for p in pieces}
@@ -42,10 +43,17 @@ class Game:
         self.move_log = MoveLog()
         self.scoreboard = ScoreBoard()  
         self.voice = VoiceSFX()
-        self.screen_overlay = ScreenOverlay()
-
-        cv2.namedWindow("Game", cv2.WINDOW_NORMAL)
-        cv2.resizeWindow("Game", 1920, 1080)
+        
+        # יצירת החלון עם כותרת שכוללת את ה-game_id
+        window_title = f"Chess Game - {self.game_id}"
+        cv2.namedWindow(window_title, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(window_title, 1920, 1080)
+        self.window_name = window_title  # שמירת שם החלון לשימוש מאוחר
+        
+        self.screen_overlay = ScreenOverlay(window_title)  # העברת שם החלון
+        
+        # Player names for display
+        self.player_names = {"WHITE": "Player 1", "BLACK": "Player 2"}
         
         bg_path = "../pieces/background.jpg"
         bg = cv2.imread(str(bg_path), cv2.IMREAD_COLOR)
@@ -62,6 +70,18 @@ class Game:
     def clone_board(self) -> Board:
         """Return a clone of the current board."""
         return self.board.clone()
+
+    def set_player_names(self, white_name: str, black_name: str):
+        """Set the names of the players for display."""
+        self.player_names["WHITE"] = white_name
+        self.player_names["BLACK"] = black_name
+        logger.info(f"Player names set: WHITE={white_name}, BLACK={black_name}")
+
+    def set_player_name(self, color: str, name: str):
+        """Set the name of a specific player."""
+        if color.upper() in self.player_names:
+            self.player_names[color.upper()] = name
+            logger.info(f"Player name set: {color.upper()}={name}")
 
     def start_user_input_thread(self):
         """Start separate threads to process player keyboard input."""
@@ -150,11 +170,23 @@ class Game:
         bg[y0:y0+board_h, x0:x0+board_w] = board_img
 
         if hasattr(self, "scoreboard"):
-            self.scoreboard.draw(bg, origin=(50, 30), player="WHITE")
-            self.scoreboard.draw(bg, origin=(win_w - 300, 30), player="BLACK")
-        self.move_log.draw(bg, origin=(50, 150), player="WHITE")
-        self.move_log.draw(bg, origin=(win_w - 300, 150), player="BLACK")
-        cv2.imshow("Game", bg)
+            self.scoreboard.draw(bg, origin=(50, 30), player="WHITE", player_name=self.player_names["WHITE"])
+            self.scoreboard.draw(bg, origin=(win_w - 300, 30), player="BLACK", player_name=self.player_names["BLACK"])
+        self.move_log.draw(bg, origin=(50, 150), player="WHITE", player_name=self.player_names["WHITE"])
+        self.move_log.draw(bg, origin=(win_w - 300, 150), player="BLACK", player_name=self.player_names["BLACK"])
+        
+        # הצגת Game ID בתחתית המסך
+        game_id_text = f"Game ID: {self.game_id}"
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.8
+        color = (255, 255, 255)  # לבן
+        thickness = 2
+        text_size = cv2.getTextSize(game_id_text, font, font_scale, thickness)[0]
+        text_x = (win_w - text_size[0]) // 2  # מרכז המסך
+        text_y = win_h - 30  # 30 פיקסלים מלמטה
+        cv2.putText(bg, game_id_text, (text_x, text_y), font, font_scale, color, thickness)
+        
+        cv2.imshow(self.window_name, bg)
         cv2.waitKey(1)
 
     def _process_all_inputs(self):

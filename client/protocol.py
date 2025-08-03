@@ -35,6 +35,8 @@ class ErrorCodes:
     GAME_FULL = "GAME_FULL"
     CONNECTION_ERROR = "CONNECTION_ERROR"
     INVALID_REQUEST = "INVALID_REQUEST"
+    SERVER_ERROR = "SERVER_ERROR"          # הוספתי את זה
+    INVALID_MESSAGE = "INVALID_MESSAGE"    # הוספתי את זה
 
 @dataclass
 class PlayerJoinMessage:

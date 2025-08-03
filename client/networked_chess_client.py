@@ -38,6 +38,7 @@ class NetworkedChessClient:
         self.player_name = player_name
         self.preferred_color = preferred_color
         self.player_id = None  # Will be set when connecting
+        self.game_id = None  # ID של המשחק הנוכחי
         self.websocket = None
         self.connected = False
         
@@ -74,64 +75,11 @@ class NetworkedChessClient:
             await self.websocket.send(join_message.to_json())
             logger.info(f"Joined as {self.player_name} (preferred color: {self.preferred_color})")
             
-            # Create or join a game via REST API
-            await self.create_or_join_game()
+            # No need for separate REST API calls - everything via WebSocket
             
         except Exception as e:
             logger.error(f"Failed to connect: {e}")
             self.connected = False
-            
-    async def create_or_join_game(self):
-        """Try to join existing game or create a new one"""
-        import aiohttp
-        
-        try:
-            async with aiohttp.ClientSession() as session:
-                # First try to get list of games
-                async with session.get(f"http://{DEFAULT_SERVER_HOST}:{DEFAULT_SERVER_PORT}/games") as resp:
-                    if resp.status == 200:
-                        games_data = await resp.json()
-                        games = games_data.get("games", [])
-                        
-                        # Look for a waiting game
-                        waiting_game = None
-                        for game in games:
-                            if game.get("status") == "waiting":
-                                waiting_game = game
-                                break
-                        
-                        if waiting_game:
-                            # Join existing waiting game
-                            game_id = waiting_game["game_id"]
-                            logger.info(f"Found waiting game: {game_id}")
-                        else:
-                            # Create new game
-                            async with session.post(f"http://{DEFAULT_SERVER_HOST}:{DEFAULT_SERVER_PORT}/game/create") as create_resp:
-                                if create_resp.status == 200:
-                                    game_data = await create_resp.json()
-                                    game_id = game_data["game_id"]
-                                    logger.info(f"Created new game: {game_id}")
-                                else:
-                                    logger.error(f"Failed to create game: {create_resp.status}")
-                                    return
-                        
-                        # Join the game
-                        join_data = {
-                            "player_id": self.player_id,
-                            "player_name": self.player_name
-                        }
-                        
-                        async with session.post(f"http://{DEFAULT_SERVER_HOST}:{DEFAULT_SERVER_PORT}/game/{game_id}/join", json=join_data) as join_resp:
-                            if join_resp.status == 200:
-                                result = await join_resp.json()
-                                logger.info(f"Joined game successfully: {result}")
-                            else:
-                                logger.error(f"Failed to join game: {join_resp.status}")
-                    else:
-                        logger.error(f"Failed to get games list: {resp.status}")
-                        
-        except Exception as e:
-            logger.error(f"Error creating/joining game: {e}")
             
     async def listen_to_server(self):
         try:
@@ -177,14 +125,30 @@ class NetworkedChessClient:
     async def handle_game_state(self, data: dict):
         game_status = data.get('status', 'unknown')  # Changed from 'game_status' to 'status'
         players = data.get('players', {})
+        game_id = data.get('game_id', 'Unknown')  # קבל את ה-game_id
         
-        logger.info(f"Game status: {game_status}, Players: {len(players)}")  # Debug log
+        # עדכן את ה-game_id הנוכחי
+        if self.game_id != game_id:
+            self.game_id = game_id
+            print(f"\n🎯 משחק ID: {game_id}")
+            print("=" * 30)
+        
+        logger.info(f"Game ID: {game_id}, Status: {game_status}, Players: {len(players)}, Game started: {self.game_started}")  # Debug log מפורט יותר
         
         # Show status to user
         if game_status == 'waiting':
-            print(f"⏳ Waiting for another player... ({len(players)}/2 players)")
+            print(f"Waiting for another player... ({len(players)}/2 players)")
         elif game_status == 'active':
-            print(f"🎮 Game is starting with {len(players)} players!")
+            print(f"Game is starting with {len(players)} players!")
+        elif game_status == 'ready':
+            print(f"Game is ready with {len(players)} players!")
+        
+        # Update player names in game if we have both players
+        if self.game and len(players) >= 2:
+            self.update_player_names(players)
+        
+        # Store player data for later use
+        self.last_players_data = players
         
         if self.my_color is None:
             for player_id, player_info in players.items():
@@ -192,17 +156,21 @@ class NetworkedChessClient:
                     self.my_color = player_info.get('color')
                     self.opponent_color = 'black' if self.my_color == 'white' else 'white'
                     logger.info(f"My color: {self.my_color}")
-                    print(f"🎯 You are playing as: {self.my_color}")
+                    print(f"You are playing as: {self.my_color}")
                     
                     if self.game:
                         self.update_player_colors()
                     break
         
-        if (game_status == 'ongoing' or game_status == 'active') and not self.game_started:
-            logger.info(f"Starting game! Status: {game_status}, Game started: {self.game_started}")
-            print("🚀 Starting chess game window...")
+        if (game_status == 'ongoing' or game_status == 'active') and not self.game_started and len(players) >= 2:
+            logger.info(f"Starting game! Status: {game_status}, Players: {len(players)}, Game started: {self.game_started}")
+            print(f"\n🎮 מתחיל משחק {self.game_id}")
+            print("Starting chess game window...")
             self.game_started = True
             self.start_original_game()
+        elif (game_status == 'ongoing' or game_status == 'active') and len(players) < 2:
+            logger.warning(f"Game status is {game_status} but only {len(players)} players - not starting game")
+            print(f"⚠️ Game status is {game_status} but only {len(players)} players connected")
             
         self.server_message_queue.put({
             'type': 'game_state',
@@ -225,6 +193,29 @@ class NetworkedChessClient:
             self.game.kb_prod_2.is_active = False
             print(f"Player 2 (remote) DISABLED for network play")
             logger.info(f"Player 2 (remote) disabled - each client controls only one color")
+
+    def update_player_names(self, players: dict):
+        """Update player names in the game interface"""
+        if not self.game:
+            return
+            
+        white_name = "Player 1"
+        black_name = "Player 2"
+        
+        for player_id, player_info in players.items():
+            player_name = player_info.get('name', 'Unknown')
+            player_color = player_info.get('color', '').lower()
+            
+            if player_color == 'white':
+                white_name = player_name
+            elif player_color == 'black':
+                black_name = player_name
+        
+        # Update the game with player names
+        if hasattr(self.game, 'set_player_names'):
+            self.game.set_player_names(white_name, black_name)
+            logger.info(f"Updated player names: WHITE={white_name}, BLACK={black_name}")
+            print(f"Players: {white_name} (White) vs {black_name} (Black)")
         
     def handle_move_from_server(self, move_data: dict):
         try:
@@ -245,8 +236,12 @@ class NetworkedChessClient:
                         self.processing_opponent_move = True
                         
                         from Command import Command
-                        cmd = Command(piece_id)
-                        cmd.params = [from_cell, to_cell]
+                        cmd = Command(
+                            timestamp=int(time.time() * 1000),
+                            piece_id=piece_id,
+                            type="move",
+                            params=[from_cell, to_cell]
+                        )
                         
                         self.game._process_input(cmd)
                         
@@ -289,6 +284,12 @@ class NetworkedChessClient:
             logger.error(f"Failed to send move: {e}")
             
     def start_original_game(self):
+        # בדיקה נוספת - לא להתחיל אם אין מספיק שחקנים
+        if hasattr(self, 'last_players_data') and len(self.last_players_data) < 2:
+            logger.warning(f"Not starting game - only {len(self.last_players_data)} players")
+            print(f"⚠️ לא מתחיל משחק - יש רק {len(self.last_players_data)} שחקנים")
+            return
+            
         if self.game_thread is None:
             self.running = True
             self.game_thread = threading.Thread(target=self.run_original_game)
@@ -297,6 +298,11 @@ class NetworkedChessClient:
             logger.info("Started original game thread")
             
     def run_original_game(self):
+        # בדיקה נוספת בתחילת run_original_game
+        if hasattr(self, 'last_players_data') and len(self.last_players_data) < 2:
+            logger.warning(f"Aborting game creation - only {len(self.last_players_data)} players")
+            return
+            
         try:
             logger.info("Creating original game...")
             
@@ -319,9 +325,16 @@ class NetworkedChessClient:
                 
             logger.info(f"Found board image: {board_png}")
             
-            self.game = create_game(pieces_path, ImgFactory())
+            # העברת ה-game_id ליצירת המשחק
+            current_game_id = self.game_id if self.game_id else "Unknown"
+            self.game = create_game(pieces_path, ImgFactory(), current_game_id)
             
             self.setup_networked_game()
+            
+            # Update player names if we have them
+            if hasattr(self, 'last_players_data'):
+                self.update_player_names(self.last_players_data)
+            
             logger.info("Networked game setup complete with sound and score integration")
             
             logger.info("Starting original game...")

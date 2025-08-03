@@ -21,10 +21,11 @@ class ScoreBoard:
             else:
                 self.scores["BLACK"] += 1
 
-    def draw(self, img, origin, player):
+    def draw(self, img, origin, player, player_name=None):
         """
         Draw the scoreboard for the given player at the specified origin.
         """
         font = cv2.FONT_HERSHEY_SIMPLEX
-        text = f"{player}: {self.scores[player]}"
+        display_name = player_name if player_name else player
+        text = f"{display_name}: {self.scores[player]}"
         cv2.putText(img, text, origin, font, 1, (255, 255, 255), 2, cv2.LINE_AA)

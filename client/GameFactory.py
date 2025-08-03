@@ -7,7 +7,7 @@ from GraphicsFactory import GraphicsFactory
 CELL_PX = 113
 
 
-def create_game(pieces_root: str | pathlib.Path, img_factory) -> Game:
+def create_game(pieces_root: str | pathlib.Path, img_factory, game_id: str = "Unknown") -> Game:
     """Build a *Game* from the on-disk asset hierarchy rooted at *pieces_root*.
 
     This reads *board.csv* located inside *pieces_root*, creates a blank board
@@ -40,4 +40,4 @@ def create_game(pieces_root: str | pathlib.Path, img_factory) -> Game:
                 if code:
                     pieces.append(pf.create_piece(code, (r, c)))
 
-    return Game(pieces, board) 
+    return Game(pieces, board, game_id)  # העברת ה-game_id למשחק 

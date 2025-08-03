@@ -22,7 +22,7 @@ class MoveLog:
         for key in ("WHITE", "BLACK"):
             self.moves[key] = self.moves[key][-MAX_ROWS:]
 
-    def draw(self, img, origin=(1660, 30), player="WHITE"):
+    def draw(self, img, origin=(1660, 30), player="WHITE", player_name=None):
         """
         Draw the moves table on the left or right side with a white background and black text.
         """
@@ -33,8 +33,9 @@ class MoveLog:
 
         # Draw white background
         cv2.rectangle(img, (x0 - 10, y0 - 30), (x0 + width, y0 + height), (255, 255, 255), -1)
-        # Title
-        cv2.putText(img, f"{player} Moves", (x0 + 10, y0), font, 0.7, (0, 0, 0), 2, cv2.LINE_AA)
+        # Title with player name
+        display_name = player_name if player_name else player
+        cv2.putText(img, f"{display_name} Moves", (x0 + 10, y0), font, 0.7, (0, 0, 0), 2, cv2.LINE_AA)
         y0 += ROW_HEIGHT
         cv2.putText(img, "Time       Move", (x0 + 10, y0), font, scale, (0, 0, 0), thickness, cv2.LINE_AA)
         y0 += ROW_HEIGHT
